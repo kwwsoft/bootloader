@@ -5,6 +5,9 @@
 // Функція очищення Flash-пам'яті під основну програму
 void Bootloader_EraseAppSpace(void);
 
+// Функція очищення Flash-пам'яті під тимчасову заливку програми
+void Bootloader_EraseSlot1(void);
+
 // Функція запису масиву байтів у Flash (пишемо по 2 байти)
 void Bootloader_WriteFlash(uint32_t start_address, uint8_t* data_buffer, uint32_t data_length);
 

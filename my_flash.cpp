@@ -30,6 +30,20 @@ uint32_t Calculate_Hardware_CRC32(const uint32_t* start_address, uint32_t words_
     return CRC_GetCRC();
 }
 //*******************************************************************************
+//Функція очищення Flash ТІЛЬКИ для Слоту 1
+void Bootloader_EraseSlot1(void) {
+    uint32_t current_address = SLOT1_START_ADDRESS;
+    FLASH_Unlock();
+    FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
+
+    // Стираємо пам'ять строго від початку Слоту 1 і до кінця Flash
+    while (current_address < MCU_FLASH_END) {
+        FLASH_ErasePage(current_address);
+        current_address += FLASH_PAGE_SIZE;
+    }
+    FLASH_Lock();
+}
+//*******************************************************************************
 
 // Функція очищення Flash-пам'яті під основну програму
 void Bootloader_EraseAppSpace(void) {
@@ -42,7 +56,7 @@ void Bootloader_EraseAppSpace(void) {
     FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
 
     // Посторінково стираємо пам'ять від початку програми і до кінця фізичного об'єму Flash
-    while (current_address < MCU_FLASH_END) {
+    while (current_address < SLOT1_START_ADDRESS) {
         // FLASH_ErasePage повертає статус. У реальному коді варто перевіряти, чи він FLASH_COMPLETE
         FLASH_ErasePage(current_address);
         current_address += FLASH_PAGE_SIZE; // Переходимо до наступного кілобайту
