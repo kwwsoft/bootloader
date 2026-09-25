@@ -1,0 +1,14 @@
+#ifndef __my_FLASH_H
+#define __my_FLASH_H
+
+
+// Функція очищення Flash-пам'яті під основну програму
+void Bootloader_EraseAppSpace(void);
+
+// Функція запису масиву байтів у Flash (пишемо по 2 байти)
+void Bootloader_WriteFlash(uint32_t start_address, uint8_t* data_buffer, uint32_t data_length);
+
+
+
+
+#endif
