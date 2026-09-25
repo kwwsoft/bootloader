@@ -98,6 +98,72 @@ void Validate_And_Launch_Slot0(void) {
 }
 //*******************************************************************************
 //*******************************************************************************
+int main(void) {
+    UART1_Init();
+    TIM2_Init(); 
+
+    // Вигрібаємо стартове сміття з UART
+    while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET || USART_GetFlagStatus(USART1, USART_FLAG_ORE) == SET) {
+        (void)USART_ReceiveData(USART1);
+    }
+
+    UART1_SendString("\r\n=== PROFESSIONAL DUAL-BANK BOOTLOADER ===\r\n");
+
+    // ?? КРОК 1: Перевіряємо, чи лежить у СЛОТІ 1 свіже оновлення
+    const FirmwareHeader_t* slot1_header = (const FirmwareHeader_t*)SLOT1_START_ADDRESS;
+    
+    if (slot1_header->magic_number == 0x334D5453) { // Знайшли "STM3"
+        UART1_SendString("New firmware found in Slot 1. Validating CRC32...\r\n");
+        
+        const uint32_t* body_start = (const uint32_t*)(SLOT1_START_ADDRESS + 64);
+        uint32_t body_words = (slot1_header->file_size - 64 + 3) / 4;
+        
+        // Перевіряємо апаратним CRC32, чи цілий файл у Слоті 1
+        if (Calculate_Hardware_CRC32(body_start, body_words) == slot1_header->firmware_crc32) {
+            // Файл ідеальний! Запускаємо копіювання
+            Bootloader_UpgradeFirmware(slot1_header->file_size);
+            
+            for(volatile int d = 0; d < 1000000; d++); // Пауза для UART
+            NVIC_SystemReset(); // Ресет, щоб чистий процесор запустив Слот 0
+        } else {
+            UART1_SendString("Slot 1 CRC mismatch! Erasing broken firmware...\r\n");
+            Bootloader_EraseSlot1();
+        }
+    }
+
+    // ?? КРОК 2: Звичайний запуск. Чекаємо 3 секунди на примусове оновлення 'U'
+    UART1_SendString("Press '1' within 3 seconds for manual update...\r\n");
+    uint8_t force_update = 0;
+    uint32_t ms_passed = 0;
+
+    while (ms_passed < 3000) {
+        if (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET) {
+            if (USART_ReceiveData(USART1) == '1') {
+                force_update = 1;
+                break;
+            }
+        }
+        delay_ms(1);
+        ms_passed++;
+    }
+
+    if (force_update) {
+        UART1_SendString("Entering Update Mode. Send file via Tera Term XMODEM...\r\n");
+        
+        // ?? Обов'язково поверни у кінець Xmodem_Receive() ресет: NVIC_SystemReset();
+        Xmodem_Receive(); 
+    } else {
+        // ?? КРОК 3: Користувач мовчить, оновлень немає — перевіряємо і запускаємо робочий Слот 0
+        UART1_SendString("Validating Active Bank (Slot 0)...\r\n");
+        Validate_And_Launch_Slot0();
+        
+        // Якщо Слот 0 битий — застрягаємо в аварійному режимі відновлення
+        UART1_SendString("Emergency Mode: Slot 0 is corrupted! Waiting for XMODEM recovery...\r\n");
+        Xmodem_Receive(); 
+    }
+}
+
+//*******************************************************************************
 //точка входу в лоадер
 /*int main(void) {
     UART1_Init();
@@ -137,6 +203,7 @@ void Validate_And_Launch_Slot0(void) {
         Jump_To_Application();
     }
 }*/
+/*
 int main(void) {
     UART1_Init();
     TIM2_Init(); 
@@ -185,7 +252,6 @@ int main(void) {
         while(1);
 			
     }
-}
-//*******************************************************************************
+}*/
 
 

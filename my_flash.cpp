@@ -5,7 +5,7 @@
 #include "stm32f10x_crc.h"              // Keil::Device:StdPeriph Drivers:CRC
 
 #include "global.h"
-
+#include "my_UART.h"
 #include "my_flash.h"
 
 
@@ -84,5 +84,46 @@ void Bootloader_WriteFlash(uint32_t start_address, uint8_t* data_buffer, uint32_
     }
 
     FLASH_Lock();
+}
+//*******************************************************************************
+void Bootloader_UpgradeFirmware(uint32_t firmware_size) {
+    // Переводимо розмір файлу у 32-бітні слова (округлення вгору)
+    uint32_t words_count = (firmware_size + 3) / 4; 
+    
+    const uint32_t* src = (const uint32_t*)SLOT1_START_ADDRESS;
+    uint32_t* dst = (uint32_t*)SLOT0_START_ADDRESS;
+
+    UART1_SendString("Upgrading firmware: Copying Slot 1 to Slot 0...\r\n");
+
+    // 1. СТИРАЄМО СЛОТ 0 (Суворо ДО межі Слоту 1!)
+    uint32_t current_address = SLOT0_START_ADDRESS;
+    FLASH_Unlock();
+    FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
+    
+    while (current_address < SLOT1_START_ADDRESS) {
+        FLASH_ErasePage(current_address);
+        current_address += FLASH_PAGE_SIZE;
+    }
+
+    // 2. ПОКРОКОВО ПЕРЕНОСИМО ДАНІ
+    for (uint32_t i = 0; i < words_count; i++) {
+        uint32_t word = src[i];
+        // Розбиваємо 32-бітне слово на два HalfWord для STM32F1
+        uint16_t low_hw = (uint16_t)(word & 0xFFFF);
+        uint16_t high_hw = (uint16_t)((word >> 16) & 0xFFFF);
+
+        FLASH_ProgramHalfWord((uint32_t)&dst[i], low_hw);
+        FLASH_ProgramHalfWord((uint32_t)&dst[i] + 2, high_hw);
+    }
+
+    // 3. ОЧИЩАЄМО СЛОТ 1 (Щоб не копіювати його по колу після наступного ресету)
+    current_address = SLOT1_START_ADDRESS;
+    while (current_address < MCU_FLASH_END) {
+        FLASH_ErasePage(current_address);
+        current_address += FLASH_PAGE_SIZE;
+    }
+
+    FLASH_Lock();
+    UART1_SendString("Upgrade successful! Rebooting into new system...\r\n");
 }
 //*******************************************************************************
