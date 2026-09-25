@@ -5,6 +5,7 @@
 #include "my_UART.h"
 #include "my_flash.h"
 #include "my_XMODEM.h"
+#include "my_tim2_delay.h"
 
 
 
@@ -34,32 +35,46 @@ void Jump_To_Application(void) {
 
 int main(void) {
     UART1_Init();
-    UART1_SendString((char*)"Bootloader Active. Press '1' to update...\r\n");
+    TIM2_Init(); // ?? ¬микаЇмо наш точний таймер
+    
+    // ќчищаЇмо см≥тт€ з UART перед стартом
+    while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET || USART_GetFlagStatus(USART1, USART_FLAG_ORE) == SET) {
+        (void)USART_ReceiveData(USART1);
+    }
 
-    uint32_t timeout = 6000000; 
+    UART1_SendString((char*)"Bootloader Active. Press '1' to update (3 sec timeout)...\r\n");
+
     uint8_t update_mode = 0;
+    
+    // «ас≥каЇмо початковий час у м≥л≥секундах (3 секунди = 3000 цикл≥в по 1 мс)
+    uint32_t ms_passed = 0;
 
-    while (timeout--) {
+    while (ms_passed < 3000) {
+        // ѕерев≥р€Їмо, чи прийшла команда 'U'
         if (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET) {
             if (USART_ReceiveData(USART1) == '1') {
                 update_mode = 1;
                 break;
             }
         }
+        
+        // –обимо точну паузу в 1 м≥л≥секунду ≥ зб≥льшуЇмо л≥чильник часу
+        delay_ms(1);
+        ms_passed++;
     }
 
     if (update_mode) {
         Xmodem_Receive();
     } else {
-        UART1_SendString((char*)"Timeout. Starting App...\r\n");
-
-  			// ѕеред стрибком ќЅќ¬'я« ќ¬ќ вимикаЇмо
+        UART1_SendString((char*)"Timeout reached. Starting App...\r\n");
+        
+        // ѕеред стрибком ќЅќ¬'я« ќ¬ќ вимикаЇмо ≥ таймер теж!
+        TIM_Cmd(TIM2, DISABLE); 
         USART_Cmd(USART1, DISABLE);
 			  RCC_DeInit();
 				GPIO_DeInit(GPIOA);
-			  SysTick->CTRL = 0;
-				
-
-			Jump_To_Application();
+			  SysTick->CTRL = 0; 
+			
+        Jump_To_Application();
     }
 }

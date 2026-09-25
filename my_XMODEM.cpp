@@ -25,6 +25,7 @@ uint16_t crc16_ccitt(const uint8_t *buf, int len) {
     }
     return crc;
 }
+
 //***********************************************************************
 void Xmodem_Receive(void) {
     uint8_t expected_packet_num = 1;
