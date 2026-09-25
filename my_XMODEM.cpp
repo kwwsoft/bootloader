@@ -29,7 +29,7 @@ uint16_t crc16_ccitt(const uint8_t *buf, int len) {
 //***********************************************************************
 void Xmodem_Receive(void) {
     uint8_t expected_packet_num = 1;
-    uint32_t flash_write_address = APPLICATION_ADDRESS;
+    uint32_t flash_write_address = SLOT0_START_ADDRESS;
     uint8_t file_erased = 0;
     
     int32_t first_byte = 0;
@@ -56,7 +56,7 @@ void Xmodem_Receive(void) {
     }
 
     while (1) {
-        if (flash_write_address != APPLICATION_ADDRESS) {
+        if (flash_write_address != SLOT0_START_ADDRESS) {
             rx_byte = UART1_ReadByteTimeout(4000000);
             if (rx_byte < 0) { 
                 UART1_SendByte(NAK); 

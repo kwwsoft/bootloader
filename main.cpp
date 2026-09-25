@@ -166,7 +166,13 @@ int main(void) {
     if (force_update) {
         UART1_SendString("Force Update Mode requested by user.\r\n");
         // Сюди ми згодом підключимо прийом XMODEM, але вже в СЛОТ 1!
-        while(1); 
+			 
+			  //тимчасово щоб хоть щось лити
+        Xmodem_Receive();
+        UART1_SendString((char*)"Timeout reached. Starting App...\r\n");
+        Jump_To_Application();
+        
+			 while(1); 
     } else {
         UART1_SendString("No user request. Validating Active Bank (Slot 0)...\r\n");
         
@@ -177,6 +183,7 @@ int main(void) {
         UART1_SendString("System halted. Entering Emergency Recovery Mode. Please re-flash via XMODEM...\r\n");
         // Сюди теж підключимо XMODEM
         while(1);
+			
     }
 }
 //*******************************************************************************
