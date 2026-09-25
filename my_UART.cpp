@@ -50,7 +50,7 @@ void UART1_SendByte(uint8_t byte) {
     USART_SendData(USART1, byte);
 }
 //******************************************************************
-void UART1_SendString(char* str) {
+void UART1_SendString(const char* str) {
     while (*str) {
         UART1_SendByte(*str++);
     }
