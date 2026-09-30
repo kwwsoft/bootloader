@@ -39,8 +39,10 @@ typedef struct {
     uint8_t  reserved1;        
     uint32_t ver_build;        
 
-    char     hardware_id[16];  // Назва плати
-    uint8_t  reserved2[28];    // Наш вирівнюючий хвіст на 28 байтів
+    char     hardware_id[12];  // Назва плати
+    // ?? КРИПТО-ПАСПОРТ (Разом 32 байти)
+    uint8_t  aes_key[16];      // 16 байт ключа (тимчасово заповнить Python)
+    uint8_t  aes_iv[16];       // 16 байт вектора IV (тимчасово заповнить Python)
 } FirmwareHeader_t;
 #pragma pack(pop)
 //*******************************************************************************

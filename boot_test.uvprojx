@@ -420,6 +420,11 @@
               <FileType>8</FileType>
               <FilePath>.\my_tim2_delay.cpp</FilePath>
             </File>
+            <File>
+              <FileName>aes.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\aes.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

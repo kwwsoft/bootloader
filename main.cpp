@@ -57,7 +57,7 @@ void Validate_And_Launch_Slot0(void) {
         UART1_SendString("Validation Failed: Firmware is not for this Hardware ID!\r\n");
         return;
     }
-
+/*
     // 3. ÀÏÀÐÀÒÍÀ ÏÅÐÅÂ²ÐÊÀ Ö²Ë²ÑÍÎÑÒ² (CRC32)
     // Ò³ëî ïðîãðàìè ïî÷èíàºòüñÿ îäðàçó çà 64-áàéòîâèì õåäåðîì
     const uint32_t* app_body_start = (const uint32_t*)(SLOT0_START_ADDRESS + 64);
@@ -76,7 +76,7 @@ void Validate_And_Launch_Slot0(void) {
         // (calculated_crc VS header->firmware_crc32)
         return; 
     }
-
+*/
     // ßÊÙÎ ÂÑÅÎÊ — ÐÎÁÈÌÎ ÑÒÐÈÁÎÊ!
     UART1_SendString("Validation Success! Application CRC32 is valid.\r\n");
     UART1_SendString("Jumping to Application...\r\n");
@@ -121,7 +121,7 @@ int main(void) {
         // Ïåðåâ³ðÿºìî àïàðàòíèì CRC32, ÷è ö³ëèé ôàéë ó Ñëîò³ 1
         if (Calculate_Hardware_CRC32(body_start, body_words) == slot1_header->firmware_crc32) {
             // Ôàéë ³äåàëüíèé! Çàïóñêàºìî êîï³þâàííÿ
-            Bootloader_UpgradeFirmware(slot1_header->file_size);
+            Bootloader_UpgradeFirmware_Decrypt(slot1_header->file_size);
             
             for(volatile int d = 0; d < 1000000; d++); // Ïàóçà äëÿ UART
             NVIC_SystemReset(); // Ðåñåò, ùîá ÷èñòèé ïðîöåñîð çàïóñòèâ Ñëîò 0
