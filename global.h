@@ -37,7 +37,7 @@ typedef struct {
     uint8_t  ver_minor;        
     uint8_t  ver_patch;        
     uint8_t  reserved1;        
-    uint32_t ver_build;        
+    uint32_t clean_crc32;      // ?? 4 байти (Тут тепер живе CRC32 чистого коду!)        
 
     char     hardware_id[12];  // Назва плати
     // ?? КРИПТО-ПАСПОРТ (Разом 32 байти)
