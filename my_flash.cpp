@@ -95,7 +95,9 @@ void Bootloader_WriteFlash(uint32_t start_address, uint8_t* data_buffer, uint32_
 }
 //*******************************************************************************
 //з шифруванням прошивки
+/*
 void Bootloader_UpgradeFirmware_Decrypt(uint32_t firmware_size) {
+	
     // Хедер нової прошивки лежить на початку Слоту 1
     const FirmwareHeader_t* slot1_header = (const FirmwareHeader_t*)SLOT1_START_ADDRESS;
     
@@ -160,5 +162,102 @@ void Bootloader_UpgradeFirmware_Decrypt(uint32_t firmware_size) {
     
     UART1_SendString("Decryption complete! System rebooting...\r\n");
 }
+*/
+#include <string.h> // Для memset
+#include "stm32f10x_flash.h"
+#include "global.h"
+#include "my_flash.h"
+#include "my_UART.h"
+
+extern "C" {
+    #include "aes.h"
+}
+
+// =========================================================================
+// КЛЮЧ-ПРИВИД: Зашитий намертво у Flash завантажувача. 
+// Скрипт test.py на ПК використовує ТОЧНО такий самий!
+// =========================================================================
+void Bootloader_UpgradeFirmware_Decrypt(uint32_t firmware_size) {
+    // Початок хедера у зашифрованому Слоті 1
+    const FirmwareHeader_t* slot1_header = (const FirmwareHeader_t*)SLOT1_START_ADDRESS;
+    
+    // Розмір зашифрованого тіла програми (загальний розмір мінус 64 байти хедера)
+    uint32_t encrypted_body_bytes = firmware_size - 64;
+    
+    // Тимчасові змінні адрес
+    const uint8_t* src_bytes = (const uint8_t*)(SLOT1_START_ADDRESS + 64);
+    uint32_t dst_address = SLOT0_START_ADDRESS + 64; // Пишемо код строго після хедера
+
+    // Створюємо контекст AES і вирівняний 16-байтний RAM-буфер для поблочної роботи
+    struct AES_ctx ctx;
+    uint8_t __attribute__((aligned(4))) crypto_block[16];
+    
+    // Ініціалізуємо AES: ключ беремо з Flash бутлоадера, а IV — динамічний із хедера Слоту 1
+    AES_init_ctx_iv(&ctx, BOOTLOADER_AES_KEY, slot1_header->aes_iv);
+
+    UART1_SendString("Upgrading: Decrypting Slot 1 into Slot 0...\r\n");
+
+    // 1. Формуємо безпечний чистий хедер для робочого Слоту 0
+    uint8_t __attribute__((aligned(4))) clean_header_buf[64];
+    for (int i = 0; i < 64; i++) {
+        clean_header_buf[i] = ((uint8_t*)SLOT1_START_ADDRESS)[i];
+    }
+    
+    // Параноя №1: Повністю вичищаємо поля ключів та IV в копії хедера перед записом у Слот 0.
+    // Додаток у Слоті 0 взагалі не повинен знати, що прошивка шифрувалася.
+    for (int i = 32; i < 64; i++) { 
+        clean_header_buf[i] = 0xFF; 
+    }
+    
+    // 2. Стираємо робочий Слот 0 (строго до межі Слоту 1)
+    uint32_t current_address = SLOT0_START_ADDRESS;
+    FLASH_Unlock();
+    FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
+    
+    while (current_address < SLOT1_START_ADDRESS) {
+        FLASH_ErasePage(current_address);
+        current_address += FLASH_PAGE_SIZE;
+    }
+    
+    // Записуємо підготовлений безпечний хедер у Слот 0
+    Bootloader_WriteFlash(SLOT0_START_ADDRESS, clean_header_buf, 64);
+
+    // 3. Головний цикл дешифрування: йдемо кроком по 16 байт
+    for (uint32_t offset = 0; offset < encrypted_body_bytes; offset += 16) {
+        
+        // Читаємо 16 зашифрованих байт із Flash Слоту 1 в RAM-буфер
+        for (int b = 0; b < 16; b++) {
+            crypto_block[b] = src_bytes[offset + b];
+        }
+
+        // Розшифровуємо блок прямо в оперативці
+        AES_CBC_decrypt_buffer(&ctx, crypto_block, 16);
+
+        // Записуємо розшифрований чистий код у Слот 0
+        Bootloader_WriteFlash(dst_address + offset, crypto_block, 16);
+    }
+
+    // =========================================================================
+    // ?? ПАРАНОЇДАЛЬНЕ ОЧИЩЕННЯ RAM (Військовий стандарт безпеки)
+    // =========================================================================
+    
+    // Випалюємо контекст AES (там лежать розгорнуті в RAM раундові ключі KeyExpansion!)
+    memset(&ctx, 0x00, sizeof(ctx));
+    
+    // Вичищаємо проміжний буфер даних, де міг залишитися останній шматок коду
+    memset(crypto_block, 0x00, sizeof(crypto_block));
+    
+    // Вичищаємо буфер хедера
+    memset(clean_header_buf, 0x00, sizeof(clean_header_buf));
+    
+    // 4. Очищаємо за собою Слот 1, щоб видалити зашифрований бінарник
+    Bootloader_EraseSlot1();
+    
+    UART1_SendString("Decryption complete! RAM Secured. System rebooting...\r\n");
+		
+		  // Апаратний ресет повністю випалить регітри процесора на залізному рівні!
+    NVIC_SystemReset();
+}
+
 
 //*******************************************************************************
