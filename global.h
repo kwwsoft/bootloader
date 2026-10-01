@@ -41,7 +41,7 @@ typedef struct {
 
     char     hardware_id[12];  // Назва плати
     // ?? КРИПТО-ПАСПОРТ (Разом 32 байти)
-    uint8_t  aes_key[16];      // 16 байт ключа (тимчасово заповнить Python)
+    uint8_t  aes_key[16];      // 16 байт ключа зашитий в коді лоадера а тут пусто
     uint8_t  aes_iv[16];       // 16 байт вектора IV (тимчасово заповнить Python)
 } FirmwareHeader_t;
 #pragma pack(pop)

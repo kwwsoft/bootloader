@@ -12,8 +12,13 @@ extern "C" {
 #include "my_UART.h"
 #include "my_flash.h"
 
-
-
+//*******************************************************************************
+//ключ для шифрування в лоадері
+//вектор буде в додатку кожен раз різний
+static const uint8_t BOOTLOADER_AES_KEY[16] = {
+    0x55, 0xCC, 0x1A, 0x83, 0xF2, 0x6E, 0xBB, 0x04, 
+	  0x9D, 0x41, 0x7A, 0xCE, 0x8B, 0x3F, 0x62, 0x94
+};
 //*******************************************************************************
 // Функція розрахунку апаратного CRC32 для ділянки Flash-пам'яті
 // Вона приймає покажчик на початок даних та кількість 32-бітних слів
@@ -105,8 +110,8 @@ void Bootloader_UpgradeFirmware_Decrypt(uint32_t firmware_size) {
 
     struct AES_ctx ctx;
     
-    // Ініціалізуємо контекст AES-128-CBC ключем та IV, які ми взяли прямо з хедера!
-    AES_init_ctx_iv(&ctx, slot1_header->aes_key, slot1_header->aes_iv);
+    // Ініціалізуємо контекст AES-128-CBC ключем звідси та IV, якй ми взяли прямо з хедера!
+    AES_init_ctx_iv(&ctx, BOOTLOADER_AES_KEY, slot1_header->aes_iv);
 
     UART1_SendString("Upgrading: Decrypting Slot 1 into Slot 0...\r\n");
 
