@@ -1,4 +1,5 @@
 
+#include <string.h> // Для memset
 #include "stm32f10x.h"                  // Device header
 #include "misc.h"                       // Keil::Device:StdPeriph Drivers:Framework
 #include "stm32f10x_flash.h"            // Keil::Device:StdPeriph Drivers:Flash
@@ -53,7 +54,6 @@ void Bootloader_EraseSlot1(void) {
     FLASH_Lock();
 }
 //*******************************************************************************
-
 // Функція очищення Flash-пам'яті під основну програму
 void Bootloader_EraseAppSpace(void) {
     uint32_t current_address = APPLICATION_ADDRESS;
@@ -94,85 +94,6 @@ void Bootloader_WriteFlash(uint32_t start_address, uint8_t* data_buffer, uint32_
     FLASH_Lock();
 }
 //*******************************************************************************
-//з шифруванням прошивки
-/*
-void Bootloader_UpgradeFirmware_Decrypt(uint32_t firmware_size) {
-	
-    // Хедер нової прошивки лежить на початку Слоту 1
-    const FirmwareHeader_t* slot1_header = (const FirmwareHeader_t*)SLOT1_START_ADDRESS;
-    
-    uint32_t encrypted_body_bytes = firmware_size - 64;
-    
-    // Створюємо буфер для розшифрування одного блоку (16 байт) у RAM
-    // Вирівнюємо на 4 байти для безпеки запису Flash
-    uint8_t __attribute__((aligned(4))) crypto_block[16];
-    
-    const uint8_t* src_bytes = (const uint8_t*)(SLOT1_START_ADDRESS + 64);
-    uint32_t dst_address = SLOT0_START_ADDRESS + 64; // Пишемо тіло програми після її хедера
-
-    struct AES_ctx ctx;
-    
-    // Ініціалізуємо контекст AES-128-CBC ключем звідси та IV, якй ми взяли прямо з хедера!
-    AES_init_ctx_iv(&ctx, BOOTLOADER_AES_KEY, slot1_header->aes_iv);
-
-    UART1_SendString("Upgrading: Decrypting Slot 1 into Slot 0...\r\n");
-
-    // 1. Спочатку копіюємо сам ХЕДЕР додатка зі Слоту 1 у Слот 0 недоторканим
-    // (Але занулюємо там поля ключа та IV для безпеки, щоб у Слоті 0 їх не було видно!)
-    uint8_t __attribute__((aligned(4))) clean_header_buf[64];
-    for(int i=0; i<64; i++) {
-        clean_header_buf[i] = ((uint8_t*)SLOT1_START_ADDRESS)[i];
-    }
-    // Затираємо ключі в копії хедера для Слоту 0 (опціонально для супер-захисту)
-    for(int i=32; i<64; i++) { clean_header_buf[i] = 0xFF; }
-    
-    // Стираємо Слот 0
-    // 1. СТИРАЄМО СЛОТ 0 (Суворо ДО межі Слоту 1!)
-    uint32_t current_address = SLOT0_START_ADDRESS;
-    FLASH_Unlock();
-    FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
-    
-    while (current_address < SLOT1_START_ADDRESS) {
-        FLASH_ErasePage(current_address);
-        current_address += FLASH_PAGE_SIZE;
-    }
-
-    //Bootloader_EraseSlot0_Only(); 
-    
-    // Записуємо очищений хедер у Слот 0
-    Bootloader_WriteFlash(SLOT0_START_ADDRESS, clean_header_buf, 64);
-
-    // 2. ГОЛОВНИЙ ЦИКЛ ДЕШИФРУВАННЯ: Ідемо кроком по 16 байт (розмір блоку AES)
-    for (uint32_t offset = 0; offset < encrypted_body_bytes; offset += 16) {
-        
-        // Копіюємо 16 зашифрованих байт зі Flash (Слот 1) в оперативку (RAM)
-        for (int b = 0; b < 16; b++) {
-            crypto_block[b] = src_bytes[offset + b];
-        }
-
-        // ?? МАГІЯ: Розшифровуємо цей 16-байтний блок прямо в оперативці!
-        AES_CBC_decrypt_buffer(&ctx, crypto_block, 16);
-
-        // Записуємо вже розшифровані 16 байт (чистий код) у робочий Слот 0!
-        Bootloader_WriteFlash(dst_address + offset, crypto_block, 16);
-    }
-
-    // 3. Очищаємо за собою Слот 1
-    Bootloader_EraseSlot1();
-    
-    UART1_SendString("Decryption complete! System rebooting...\r\n");
-}
-*/
-#include <string.h> // Для memset
-#include "stm32f10x_flash.h"
-#include "global.h"
-#include "my_flash.h"
-#include "my_UART.h"
-
-extern "C" {
-    #include "aes.h"
-}
-
 // =========================================================================
 // КЛЮЧ-ПРИВИД: Зашитий намертво у Flash завантажувача. 
 // Скрипт test.py на ПК використовує ТОЧНО такий самий!
@@ -238,7 +159,7 @@ void Bootloader_UpgradeFirmware_Decrypt(uint32_t firmware_size) {
     }
 
     // =========================================================================
-    // ?? ПАРАНОЇДАЛЬНЕ ОЧИЩЕННЯ RAM (Військовий стандарт безпеки)
+    // ?? ПАРАНОЇДАЛЬНЕ ОЧИЩЕННЯ RAM 
     // =========================================================================
     
     // Випалюємо контекст AES (там лежать розгорнуті в RAM раундові ключі KeyExpansion!)
